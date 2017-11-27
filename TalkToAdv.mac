@@ -1,0 +1,561 @@
+//=================================================================================
+//トークメーカーHTML to JokerScript形式 変換秀丸マクロ Ver1.02 RasenWorks 20171127
+// ※トークメーカーは2017/11/27現在の仕様で動作確認しています。
+//=================================================================================
+//【使い方】
+//トークメーカーで変換したい対象の『トーク形式』ページをChromeで開き、「名前を付けて保存（完全）」をし、
+//保存後のHTMLファイルを秀丸エディタで開いた上で、このスクリプトを実行してください。
+//詳しくは：https://drive.google.com/open?id=1cTaI1QKL56rU7eJaHQQqWD3D9Qx1aY-VFuEG7XWB9JQ を参照してください。
+//=================================================================================
+//=================================================================================
+	setcompatiblemode 0x0F;
+
+//マクロ初期設定
+#Varbose =0;	// デバッグモード=1
+
+$COPY_BAT_TEXT="mkdir image\nmkdir character\n";	//イメージファイルコピー用バッチファイル内容
+
+//画像表示位置設定
+$XL	= "-3";	//左側のキャラのX座標
+$XR	= "3";	//右側のキャラのX座標
+$XCENT	= "0";	//アイテム表示用（センター）
+
+
+//MAIN
+
+$ER="TopData";	//エラーチェック用テキスト
+
+	gofiletop;
+	searchdown "<title>" , hilight;
+	if( ! result ) call Err;
+	wordright;
+	wordright;
+
+	beginsel;
+	searchdown "｜" , hilight;
+	if( ! result ) call Err;
+	copy;
+
+	beginclipboardread;
+	$SeriesTitle=getclipboard;
+
+	call DebugMes  "シリーズタイトル："+ $SeriesTitle;
+
+	right;
+	
+	beginsel;
+	searchdown "｜" , hilight;
+	if( ! result ) call Err;
+	copy;
+
+	beginclipboardread;
+	$Title=getclipboard;
+
+	call DebugMes "タイトル："+ $Title;
+	
+	gofiletop;
+	beginsel;
+
+
+	$ER="前後カット";
+	searchdown "<p class=\"clear border03 mt15\">" , hilight;
+	if( ! result ) call Err;
+	down;
+	golineend2;
+	delete;
+
+
+	searchdown "<!--/.join-->" , hilight;
+	if( ! result ) call Err;
+	down;
+	down;
+	down;	//つぎの mt35 までを含めるオマジナイ
+	beginsel;
+	gofileend;
+	delete;
+
+
+///キャラ画像
+
+	gofiletop;
+
+$ER="キャラ画像チェック";
+
+#ChraMax=0;
+
+$FN[#ChraMax]="";
+$CHJ[#ChraMax]="";
+$CHE[#ChraMax]="";
+$LR[#ChraMax]="";
+while(1){
+
+	$ER="画像チェック"+str(#ChraMax);
+
+	searchdown "class=\"icon", hilight;
+	if( ! result ) break;	//なくなったらループ終了
+
+	//L or R ?
+	searchup "<div class=\"f", hilight;
+	if( ! result ) call Err;
+	wordright;
+	wordright;
+	wordright;
+
+	beginsel;
+	searchdown "\"",hilight;
+	copy;
+
+	beginclipboardread;
+	$LorR=getclipboard;
+	//左右の表示位置は -3 0 +3 ぐらいがよさそう（Ｗｉｄｅ時）
+	if($LorR=="fLeft") $LorR=$XL;
+	if($LorR=="fRight") $LorR=$XR;
+
+	
+	searchdown "\"./",hilight;
+	wordright;
+
+	searchdown "/",hilight;
+	right;
+
+	beginsel;
+	searchdown "\"",hilight;
+//	searchdown ".",hilight;	// .までに変更
+	copy;
+
+	beginclipboardread;
+	$IMGF=getclipboard;
+
+	#i=0;#flg=0;	//同じファイルネームを見つけたら#flg=1してbreak
+		$nFN = leftstr($IMGF,strstr($IMGF,"."));
+	while(#i<#ChraMax){
+//		if($IMGF==$FN[#i]){
+		$nFN = leftstr($IMGF,strstr($IMGF,"."));
+		if($nFN==$FN[#i]){
+			#flg=1;
+			break;
+		}
+		#i=#i+1;
+	}
+
+	if(#flg==0){
+
+		$LR[#ChraMax]=$LorR;
+
+		call DebugMes $IMGF;
+
+		$FN[#ChraMax]=$nFN;
+//		$FN[#ChraMax] =  leftstr($IMGF,strstr($IMGF,"."));	//拡張子削除
+
+		golinetop;
+		beginsel;
+		golineend2;
+		
+		setclipboard $IMGF;
+		$ren = input("このファイル名キャラの名前を入力。（既にファイル名が入っているのはコピペして確認用です）別表情で同じ名前も当然ＯＫ",$IMGF);
+
+		$CHJ[#ChraMax]=$ren;
+
+		$rtmp= "キャラ絵ごとの "+ $ren + "の識別名（絵と対応した固有の識別名）を入力してください";
+		$ren = input($rtmp,$ren);
+
+		$CHE[#ChraMax]=$ren;
+		
+		$COPY_BAT_TEXT=$COPY_BAT_TEXT+"COPY "+leftstr(basename,strlen(basename)-strlen(filetype))+"_files\\"+$IMGF+" character\\ \n";
+
+
+		escape;
+		#ChraMax=#ChraMax+1;
+
+	}
+
+	down;
+}
+
+//test
+call DebugMes  "ChraMax="+str(#ChraMax);
+#i=0;
+while(#i<#ChraMax){
+//	message $LR[#i]+" : "+$CHE[#i]+": "+$CHJ[#i]+" : "+$FN[#i]+"\n";
+	#i=#i+1;
+}
+
+
+
+
+//ITEM画像
+	gofiletop;
+
+$ER="ＩＴＥＭ画像チェック";
+
+#ItemMax=0;
+
+$IFN[#ItemMax]="";
+$ITEM[#ItemMax]="";
+while(1){
+
+	$ER="ＩＴＥＭ画像チェック"+str(#ItemMax);
+
+	searchdown "height=\"auto", hilight;
+	if( ! result ) break;	//なくなったらループ終了
+
+	//IMG
+	searchup "<img src=", hilight;
+	if( ! result ) call Err;
+	wordright;
+	wordright;
+	wordright;
+
+	searchdown "/",hilight;
+	right;
+
+	beginsel;
+	searchdown "\"",hilight;
+	copy;
+
+	beginclipboardread;
+	$IMGF=getclipboard;
+
+	#i=0;#flg=0;	//同じファイルネームを見つけたら#flg=1してbreak
+		$nFN = leftstr($IMGF,strstr($IMGF,"."));
+	while(#i<#ItemMax){
+		//if($IMGF==$IFN[#i]){
+		if($nFN==$FN[#i]){
+			$nFN = leftstr($IMGF,strstr($IMGF,"."));
+			#flg=1;
+			break;
+		}
+		#i=#i+1;
+	}
+
+	if(#flg==0){
+
+		//message $IMGF;
+		$IFN[#ItemMax]=$nFN;
+
+//		$IFN[#ItemMax]=$IMGF;
+
+		golinetop;
+		beginsel;
+		golineend2;
+
+		setclipboard $IMGF;
+
+		$ren = input("このITEM画像の識別名を入力してください。",$IMGF);
+
+		$ITEM[#ItemMax]=$ren;
+		escape;
+		#ItemMax=#ItemMax+1;
+
+		$COPY_BAT_TEXT=$COPY_BAT_TEXT+"COPY "+leftstr(basename,strlen(basename)-strlen(filetype))+"_files\\"+$IMGF+" image\\ \n";
+
+	}
+
+	down;
+
+}
+
+
+///Output1
+$ER="OUTPUT1";
+gofileend;
+	insert "\n\n\n;【キャラクターの宣言】\n";
+#i=0;
+while(#i<#ChraMax){
+
+//	$fsn =  leftstr($FN[#i],strstr($FN[#i],"."));	//拡張子削除
+	insert "[chara_new name="+$CHE[#i]+" storage="+$FN[#i]+" x="+$LR[#i]+" jname="+$CHJ[#i]+"]\n";
+	//[chara_new name=T1 storage=2a7411c14c7e738aa5e36bebbca429b6.jpg x=fLeft jname=本１]
+
+	#i=#i+1;
+}
+
+
+	insert "\n;Itemイメージセット\n";
+#i=0;
+while(#i<#ItemMax){
+	//$fsn =  leftstr($IFN[#i],strstr($IFN[#i],"."));	//拡張子削除
+	insert "[image_new name="+$ITEM[#i]+" storage="+$IFN[#i]+" x="+$XCENT+"]\n";
+
+	//[image_new name="logo" tag=system ]
+	#i=#i+1;
+}
+
+//////////////////
+//台詞ループ
+$ER="台詞";
+
+gofiletop;
+	beginsel;
+	searchdown "mt30", hilight;	//mt30を探す
+//	if( ! result ) break;	//なくなったらループ終了
+	golineend2;	//行末まで行って
+	delete;	//mt30 行までを削除
+
+while(1){
+
+	golinetop;up;
+	beginsel;
+	searchdown "mt30", hilight;	//mt30を探す
+	if( ! result ) break;	//なくなったらループ終了
+	golinetop;//	行頭に戻って
+	cut;	//cutにしておくか？
+
+	beginclipboardread;
+	#i = 0;$buf="";
+	$a[#i] = getclipboard;
+	while( $a[#i] != "" ) {
+	    #i = #i + 1;
+	    $a[#i] = getclipboard;
+			$buf=$buf+$a[#i];
+	}
+
+	call DebugMes  "ALLGET:"+$buf;
+
+	#p1=strstr( $buf, "<div>" ) +strlen("<div>");
+	#p2=strstr( $buf, "</div>",#p1);
+
+//	message "p1:"+str(#p1);
+//	message "p2:"+str(#p2);
+
+	$Mes = midstr( $buf, #p1, #p2-#p1 );
+	call DebugMes  "p1:"+str(#p1)+"p2:"+str(#p2)+":"+$Mes;
+
+	#LRF=0;$C="";#ret_num=0;
+	//Left
+	if(strstr($buf,"<div class=\"fLeft\">")>0){
+		#LRF=1;
+		#i=strstr($buf,"<div class=\"fLeft\">");
+		#p1=strstr( $buf, "img src=\"./",#i ) + strlen("img src=\"./");
+		#p2=strstr( $buf, "/",#p1 ) + 1;
+		#p3=strstr( $buf, ".",#p2);	//ファイル名の.まで
+		$FileN=midstr($buf,#p2,#p3-#p2);
+		//message "$FileN="+$FileN;
+		call FNtoName $FileN;
+		#ret_num=##return;
+		call DebugMes  "Left CharaName:"+$CHE[#ret_num];
+	}
+	//Right
+	if(strstr($buf,"<div class=\"fRight\">")>0){
+		#LRF=2;
+		#i=strstr($buf,"<div class=\"fRight\">");
+		#p1=strstr( $buf, "img src=\"./",#i ) + strlen("img src=\"./");
+		#p2=strstr( $buf, "/",#p1 ) + 1;
+		#p3=strstr( $buf, ".",#p2);	//ファイル名の.まで
+		$FileN=midstr($buf,#p2,#p3-#p2);
+		//message "$FileN="+$FileN;
+		call FNtoName $FileN;
+		#ret_num=##return;
+		call DebugMes  "Right CharaName:"+$CHE[#ret_num];
+	}
+	//Auto	(Ｉｔｅｍ絵のみ）
+	if(strstr($buf,"height=\"auto\"")>0){
+		#LRF=3;
+
+//		#i=strstr($buf,"<div class=\"fRight\">");
+		#p1=strstr( $buf, "img src=\"./",#i ) + strlen("img src=\"./");
+		#p2=strstr( $buf, "/",#p1 ) + 1;
+		#p3=strstr( $buf, ".",#p2);	//ファイル名の.まで
+		$FileN=midstr($buf,#p2,#p3-#p2);
+		//message "$FileN="+$FileN;
+		call FNtoItemName $FileN;
+		#ret_num=##return;
+		call DebugMes  "ItemName:"+$ITEM[#ret_num];
+
+	}
+
+	//Put
+//	gofileend;
+	insert ";\n";
+
+	//Lでも Rでも Aでもなければ、地の分（絵なし）
+	if(#LRF==0){
+		insert "#　\n";
+
+		//本文（台詞）
+		insert $Mes+"[p]";
+
+	}
+	if(#LRF>0 && #LRF<3){
+		insert "#"+ $CHE[#ret_num] +"\n";
+		insert ";"+$CHE[#ret_num] +"を表示\n";
+		insert "[show name="+$CHE[#ret_num]+"]\n";
+
+		//本文（台詞）
+		insert $Mes+"[p]";
+
+	}
+	if(#LRF==3){
+		insert "#　\n";	//Ｉｔｅｍ絵のみの場合。不要？
+		insert ";"+$ITEM[#ret_num]+"を表示\n";
+		
+		insert "[show name="+$ITEM[#ret_num]+"]\n　[l]\n";
+	}
+
+	insert "\n";	//不要？
+
+	if(#LRF>0 && #LRF<3){
+		insert ";"+$CHE[#ret_num] +"を非表示\n";
+		insert "[hide name="+$CHE[#ret_num]+"]\n";
+	}
+	if(#LRF==3){
+		insert ";"+$ITEM[#ret_num]+"を非表示\n";
+		insert "[hide name="+$ITEM[#ret_num]+"]\n";
+	}
+
+	insert "\n";	//
+
+	//残ったmt30除去
+	golinetop;
+	selectline;
+	searchdown "mt30",inselect;
+	if(result ) {
+		deleteline2; 	//現在行にmt30が残っているなら削除
+	}
+//		golineend2;
+//	golinetop;
+//	break;
+
+}
+escape;
+
+//memo
+//<div class="clear type1 mt30" 
+//<div class="m20 mt30 f120
+//<div class="m20 mt30 f120"
+//<div class="clear type1 mt30"
+//	<div class="fLeft"><img src="./t0_files/34306281262275bd8ae3ca7f2fe56fe9.jpg" class="iconL"></div> //LEFT
+//	<div>
+//		台詞
+//	</div>
+//		<div class="fRight"><img src="./t0_files/3e73445b5d26b53a44401a178d45dd57.jpg" class="iconL"></div> //RIGHT
+
+//	<img src="./p1_files/dfd2f8f3ffd9655f0bc1ddd7ea4d3fcf.png" width="320" height="auto"> //ITEM
+
+// mt30 ～ 次の mt30 までの間で 最小の<div>～</div>が台詞
+// 
+
+//下部に残っている宣言部を最初へ
+
+golinetop;
+beginsel;
+gofileend;
+cut;
+
+gofiletop;
+
+paste;
+insert "\n;-------- タイトル等\n";
+
+insert "#　\n";
+insert $SeriesTitle+"[r][l]\n";
+insert $Title+"[p]\n";
+
+insert "\n;-------- トーク開始\n";
+
+//説明文追加
+gofiletop;
+
+insert ";【トークメーカー to ＪｏｋｅｒＳｃｒｉｐｔ】変換マクロによる自動生成スクリプト\n";
+insert ";ＪｏｋｅｒＳｃｒｉｐｔチュートリアル用スクリプトファイルより。\n";
+insert ";---------------------------------------------------------------------------------------------\n";
+insert ";【使い方】\n";
+insert ";このファイルを、Assets>JOKER_GAME>Resources>novel>data>scenario>wide 以下へ保存してsystemかtitleスクリプトから呼び出すようにしてください。デフォルトのscene1.txtファイルと差し替えてもＯＫです。\n";
+insert ";---------------------------------------------------------------------------------------------\n";
+insert ";---------------------------------------------------------------------------------------------\n";
+
+//初期部分追加
+insert ";メッセージ表示\n";
+insert "[showmessage]\n\n";
+
+insert ";共通ライブラリ\n";
+insert ";セーブ・ロードバックログなど基本的な機能を取り込む \n";
+insert "[call file=wide/system target=\"*system_setting_buttons\"]\n\n";
+
+insert ";ゲーム作成で便利なマクロ集\n";
+insert "[call file=wide/libs/utils]\n";
+insert "[text_new name=_sp_chara_name layer=ui x=\"-168\" y=-108.5 val=\"\" color=\"DDFF00\" fontsize=16 anchor=\"MiddleLeft\"]\n";
+insert "[text_show name=\"_sp_chara_name\"]\n\n";
+
+insert ";背景の新規定義\n";
+insert ";[bg_new storage=\"図書室昼\"]\n";
+insert "[bg_new storage=\"room\"]\n";
+
+insert ";背景の表示\n";
+insert "[bg_show ]\n\n";
+
+
+//整形
+replaceall "\t", "",regular;
+//if( !result ) call Err;
+
+replaceall "<p>", "";
+replaceall "</p>", "[p]";
+
+replaceall "<br>", "[r][p]";
+
+
+//おしまい
+
+//	message "終了。sceene1.txt等のファイル名で保存し、JOKER_GAME内の所定のフォルダへコピーしてください";
+	$BF = basename;
+	question "イメージファイルのコピー用バッチファイルを作成しますか？";
+	if( result == yes ) {
+	    //save;
+		openfile "copyimages.bat";
+		insert $COPY_BAT_TEXT;
+		save;
+		message "copyimages.bat ファイルを作成しました。DOSプロンプトから実行すると必要なファイルをimageとcharacterフォルダにコピーします";
+		setactivehidemaru findhidemaru( $BF );
+	}
+
+	$BF="本"+$BF+"ファイルを別の名前で保存しますか？";
+ 	question $BF;
+	if( result == yes ) {
+		$ren = input("変更するファイル名を入力してください","scene1.txt");
+		saveas $ren;
+		message "保存しました";
+	}
+
+
+	endmacro;
+
+//FileNameとキャラ名前の合致検索
+FNtoName:
+	#ii=0;
+	while(#ii<#ChraMax){
+//		if(strstr($FN[#ii],$$1)>-1){
+		if($FN[#ii]==$$1){
+			//みつけた
+			break;
+		}
+		#ii=#ii+1;
+	}
+
+return #ii;
+
+
+//FileNameとItem名の合致検索
+FNtoItemName:
+	#ii=0;
+	while(#ii<#ItemMax){
+//		if(strstr($FN[#ii],$$1)>-1){
+		if($IFN[#ii]==$$1){
+			//みつけた
+			break;
+		}
+		#ii=#ii+1;
+	}
+
+return #ii;
+
+DebugMes:
+	if(#Varbose){
+		message $$1;
+	}
+return;
+
+Err:
+
+			message "何か変です。エラー終了。:"+$ER;
+
