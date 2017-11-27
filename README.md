@@ -1,0 +1,2 @@
+# TalkMakerToJokerScript
+トークメーカーのトーク作品をJokerScript化する秀丸スクリプトです
